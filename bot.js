@@ -11,7 +11,7 @@ if (!TOKEN || !GEMINI_KEY) {
 
 const API = `https://api.telegram.org/bot${TOKEN}`;
 // Model nomi foydalanuvchi so'raganidek, lekin Google Search uchun 2.0-flash eng barqarori
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${GEMINI_KEY}`;
 
 function loadState() {
   try {
