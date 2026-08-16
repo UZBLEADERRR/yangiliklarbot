@@ -32,14 +32,18 @@ async function callGemini(prompt) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        // Google Search (Grounding) funksiyasini yoqish
         tools: [{ google_search_retrieval: {} }]
       })
     });
-    const data = await res.json();
     
-    // Google Search natijasini olish
-    if (data.candidates && data.candidates[0].content.parts[0].text) {
+    if (!res.ok) {
+      const errData = await res.json();
+      console.error('Gemini API Error:', errData);
+      return `Xatolik: API modelni topa olmadi yoki ruxsat yo'q. (Model: gemini-3.7-flash)`;
+    }
+
+    const data = await res.json();
+    if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0].text) {
       return data.candidates[0].content.parts[0].text;
     }
     return "Hozircha yangilik topilmadi.";
