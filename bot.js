@@ -13,10 +13,10 @@ function loadState() {
   try {
     const data = JSON.parse(readFileSync('state.json', 'utf8'));
     if (!data.users) data.users = [];
-    if (!data.last_sent) data.last_sent = "";
+    if (!data.last_sent_slots) data.last_sent_slots = [];
     return data;
   } catch {
-    return { offset: 0, users: [], last_sent: "" };
+    return { offset: 0, users: [], last_sent_slots: [] };
   }
 }
 
@@ -72,20 +72,28 @@ const todayDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
 
 console.log('Hozirgi vaqt (UZ):', uzTime);
 
-// 22:00 yoki 22:05 ekanligini va bugun hali yuborilmaganini tekshirish
-const timeSlots = ['22:00', '22:01', '22:02', '22:05', '22:06', '22:07']; // Kechikishlarni hisobga olgan holda
-const currentSlot = timeSlots.includes(uzTime) ? uzTime.substring(0, 5) : null;
-const sentKey = `${todayDate}_${currentSlot}`;
+// 22:00 va 22:05 yangiliklarini tekshirish
+const [hour, minute] = uzTime.split(':').map(Number);
 
-if (currentSlot && state.last_sent !== sentKey) {
-  const newsMessage = `📢 <b>Kechki yangiliklar (${currentSlot})</b>\n\nBugungi asosiy voqealar bilan tanishing...`;
-  
-  for (const chatId of state.users) {
-    await send(chatId, newsMessage);
+async function checkAndSend(slotTime, label) {
+  const sentKey = `${todayDate}_${slotTime}`;
+  if (state.last_sent_slots?.includes(sentKey)) return;
+
+  const [slotH, slotM] = slotTime.split(':').map(Number);
+  // Agar hozirgi vaqt slot vaqtidan o'tgan bo'lsa va juda ko'p o'tib ketmagan bo'lsa (masalan 30 daqiqa)
+  if ((hour > slotH || (hour === slotH && minute >= slotM)) && (hour === slotH && minute < slotM + 30)) {
+    const newsMessage = `📢 <b>Kechki yangiliklar (${label})</b>\n\nBugungi asosiy voqealar bilan tanishing...\n\n🕒 Vaqt: ${uzTime}`;
+    for (const chatId of state.users) {
+      await send(chatId, newsMessage);
+    }
+    if (!state.last_sent_slots) state.last_sent_slots = [];
+    state.last_sent_slots.push(sentKey);
+    console.log(`Yangilik yuborildi: ${sentKey}`);
   }
-  state.last_sent = sentKey;
-  console.log(`Yangilik yuborildi: ${sentKey}`);
 }
+
+await checkAndSend('22:00', '22:00');
+await checkAndSend('22:05', '22:05');
 
 writeFileSync('state.json', JSON.stringify(state, null, 2));
 console.log('Ish yakunlandi.');
