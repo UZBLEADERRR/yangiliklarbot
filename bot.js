@@ -1,7 +1,9 @@
-// Telegram bot — GitHub Actions har 5 daqiqada ishga tushiradi.
+// Telegram bot — Gemini AI bilan boyitilgan
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const TOKEN = process.env.BOT_TOKEN;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
+
 if (!TOKEN) {
   console.error('BOT_TOKEN yoʻq — repo Secrets ga qoʻshing');
   process.exit(1);
@@ -9,11 +11,30 @@ if (!TOKEN) {
 
 const API = `https://api.telegram.org/bot${TOKEN}`;
 
+// Gemini AI orqali yangilik generatsiya qilish
+async function getAIUpdate() {
+  if (!GEMINI_KEY) return "⚠️ Gemini API kaliti topilmadi. Iltimos, GitHub Secrets ga GEMINI_API_KEY qo'shing.";
+  
+  const prompt = "Bugungi dunyo yangiliklari, texnologiya va qiziqarli voqealar haqida qisqacha, 5-6 ta banddan iborat o'zbek tilida ma'lumot ber. Har bir yangilik qisqa va lo'nda bo'lsin. Oxirida Koreya vaqtini ham eslatib o't.";
+  
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    });
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+  } catch (e) {
+    return "Yangiliklarni yuklashda xatolik yuz berdi.";
+  }
+}
+
 function loadState() {
   try {
-    const data = JSON.parse(readFileSync('state.json', 'utf8'));
-    if (!data.users) data.users = [];
-    return data;
+    return JSON.parse(readFileSync('state.json', 'utf8'));
   } catch {
     return { offset: 0, users: [] };
   }
@@ -24,14 +45,12 @@ async function send(chatId, text) {
     await fetch(`${API}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
     });
   } catch (e) {
     console.error('Xabar yuborishda xato:', e);
   }
 }
-
-const newsMessage = `📢 <b>Bugungi yangiliklar</b>\n\nKoreyada vaqt: ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Seoul' })}\n\nBugungi asosiy voqealar bilan tanishing...\n\n(Bu yerga yangilik matnini qo'shishingiz mumkin)`;
 
 const state = loadState();
 
@@ -47,17 +66,12 @@ for (const update of data.result ?? []) {
   const chatId = message.chat.id;
   const text = (message.text || '').trim().toLowerCase();
 
-  if (!state.users.includes(chatId)) {
-    state.users.push(chatId);
-  }
-
   if (text === '/start') {
-    await send(chatId, 'Salom! Yangiliklar botiga xush kelibsiz.');
-    await send(chatId, newsMessage);
-  } else if (text === '/yordam') {
-    await send(chatId, 'Buyruqlar:\n/start — yangiliklarni olish');
+    await send(chatId, "⏳ *Yangiliklar tayyorlanmoqda...*");
+    const aiNews = await getAIUpdate();
+    await send(chatId, `📢 *Bugungi yangiliklar:*\n\n${aiNews}`);
   } else {
-    await send(chatId, 'Tushunmadim. /start deb yozing.');
+    await send(chatId, "Yangiliklarni olish uchun /start buyrug'ini yuboring.");
   }
 }
 
