@@ -19,7 +19,7 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: node bot.js > run.log 2>&1
+        run: timeout 60 node bot.js > run.log 2>&1 || true
 
       - name: Logni repoga saqlash
         run: |
